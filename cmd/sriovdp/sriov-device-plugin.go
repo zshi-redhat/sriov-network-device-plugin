@@ -24,6 +24,7 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"syscall"
@@ -140,21 +141,22 @@ func GetVFList(pf string) ([]string, error) {
 }
 
 //Reads DeviceName and gets PCI Addresses of VFs configured
-func (sm *sriovManager) discoverNetworks() error {
+func (sm *sriovManager) discoverNetworks() ([]string, map[string]pluginapi.Device, error) {
 
 	var healthValue string
-	sm.rootDevices = []string{}
+	rootDevices := []string{}
+	vfDevices := make(map[string]pluginapi.Device)
 
 	// Get a list of SRIOV capable NICs in the host
 	pfList, err := getSriovPfList()
 
 	if err != nil {
-		return err
+		return rootDevices, vfDevices, err
 	}
 
 	if len(pfList) < 1 {
 		glog.Errorf("Error. No SRIOV network device found")
-		return fmt.Errorf("Error. No SRIOV network device found")
+		return rootDevices, vfDevices, fmt.Errorf("Error. No SRIOV network device found")
 	}
 
 	for _, dev := range pfList {
@@ -163,13 +165,13 @@ func (sm *sriovManager) discoverNetworks() error {
 		vfs, err := ioutil.ReadFile(sriovcapablepath)
 		if err != nil {
 			glog.Errorf("Error. Could not read sriov_totalvfs in device folder. SRIOV not supported. Err: %v", err)
-			return err
+			return rootDevices, vfDevices, err
 		}
 		totalvfs := bytes.TrimSpace(vfs)
 		numvfs, err := strconv.Atoi(string(totalvfs))
 		if err != nil {
 			glog.Errorf("Error. Could not parse sriov_capable file. Err: %v", err)
-			return err
+			return rootDevices, vfDevices, err
 		}
 		glog.Infof("Total number of VFs for device %v is %v", dev, numvfs)
 		if numvfs > 0 {
@@ -178,18 +180,18 @@ func (sm *sriovManager) discoverNetworks() error {
 			vfs, err = ioutil.ReadFile(sriovconfiguredpath)
 			if err != nil {
 				glog.Errorf("Error. Could not read sriov_numvfs file. SRIOV error. %v", err)
-				return err
+				return rootDevices, vfDevices, err
 			}
 			configuredVFs := bytes.TrimSpace(vfs)
 			numconfiguredvfs, err := strconv.Atoi(string(configuredVFs))
 			if err != nil {
 				glog.Errorf("Error. Could not parse sriov_numvfs files. Skipping device. Err: %v", err)
-				return err
+				return rootDevices, vfDevices, err
 			}
 			glog.Infof("Number of Configured VFs for device %v is %v", dev, string(configuredVFs))
 
 			if numconfiguredvfs > 0 {
-				sm.rootDevices = append(sm.rootDevices, dev)
+				rootDevices = append(rootDevices, dev)
 				if IsNetlinkStatusUp(dev) {
 					healthValue = pluginapi.Healthy
 				} else {
@@ -197,14 +199,14 @@ func (sm *sriovManager) discoverNetworks() error {
 				}
 				if vfList, err := GetVFList(dev); err == nil {
 					for _, vfDev := range vfList {
-						sm.devices[vfDev] = pluginapi.Device{ID: vfDev, Health: healthValue}
+						vfDevices[vfDev] = pluginapi.Device{ID: vfDev, Health: healthValue}
 					}
 				}
 			}
 		}
 	}
-	glog.Infof("Discovered SR-IOV PF devices: %v", sm.rootDevices)
-	return nil
+	glog.Infof("Discovered SR-IOV PF devices: %v", rootDevices)
+	return rootDevices, vfDevices, nil
 }
 
 // IsNetlinkStatusUp returns 'false' if 'operstate' is not "up" for a Linux netowrk device
@@ -217,30 +219,22 @@ func IsNetlinkStatusUp(dev string) bool {
 	return true
 }
 
-// Probe returns 'true' if device health changes 'false' otherwise
+// Probe returns 'true' if device changes 'false' otherwise
 func (sm *sriovManager) Probe() bool {
-	// Network device should check link status for each physical port and update health status for
-	// all associated VFs if there is any
 	changed := false
-	var healthValue string
-	for _, pf := range sm.rootDevices {
-		// If the PF link is up = "Healthy"
-		if IsNetlinkStatusUp(pf) {
-			healthValue = pluginapi.Healthy
-		} else {
-			healthValue = "Unhealthy"
-		}
+	var err error
+	newRootDevices := []string{}
+	newVFDevices := make(map[string]pluginapi.Device)
 
-		// Get VFs associated with this device
-		if vfs, err := GetVFList(pf); err == nil {
-			for _, vf := range vfs {
-				device := sm.devices[vf]
-				if device.Health != healthValue {
-					sm.devices[vf] = pluginapi.Device{ID: vf, Health: healthValue}
-					changed = true
-				}
-			}
-		}
+	// Discover network device changes including rootDevices and vfDevices
+	if newRootDevices, newVFDevices, err = sm.discoverNetworks(); err != nil {
+		glog.Infof("Probing err: %s\n", err)
+	}
+
+	if !reflect.DeepEqual(newRootDevices, sm.rootDevices) || !reflect.DeepEqual(newVFDevices, sm.devices){
+		sm.devices = newVFDevices
+		sm.rootDevices = newRootDevices
+		changed = true
 	}
 	return changed
 }
@@ -248,7 +242,8 @@ func (sm *sriovManager) Probe() bool {
 // Discovers SRIOV capabable NIC devices.
 func (sm *sriovManager) Start() error {
 	glog.Infof("Discovering SRIOV network device[s]")
-	if err := sm.discoverNetworks(); err != nil {
+	var err error
+	if sm.rootDevices, sm.devices, err = sm.discoverNetworks(); err != nil {
 		return err
 	}
 	pluginEndpoint := filepath.Join(pluginapi.DevicePluginPath, sm.socketFile)
@@ -400,7 +395,6 @@ func (sm *sriovManager) ListAndWatch(empty *pluginapi.Empty, stream pluginapi.De
 	for {
 		select {
 		case <-time.After(10 * time.Second):
-			continue
 		case <-sm.termSignal:
 			glog.Infof("Terminate signal received, exiting ListAndWatch.")
 			return nil
