@@ -95,12 +95,8 @@ func (rm *resourceManager) readConfig() error {
 				return fmt.Errorf("unsupported deviceType:  \"%s\"", conf.DeviceType)
 			}
 		}
-		if conf.DeviceFilter, err = rm.rFactory.GetDeviceFilter(conf); err == nil {
-			rm.configList = append(rm.configList, &resources.ResourceList[i])
-		} else {
-			glog.Warningf("unable to get deviceFilter from selectors list:'%s' for deviceType: %s error: %s",
-				conf.Selectors, conf.DeviceType, err)
-		}
+
+		rm.configList = append(rm.configList, &resources.ResourceList[i])
 
 	}
 	glog.Infof("unmarshalled ResourceList: %+v", resources.ResourceList)
@@ -121,8 +117,7 @@ func (rm *resourceManager) initServers() error {
 			return fmt.Errorf("error getting device provider")
 		}
 
-		devices := dp.GetDevices()
-		filteredDevices := rc.DeviceFilter.GetFilteredDevices(devices)
+		filteredDevices := dp.GetFilteredDevices(rc)
 		if len(filteredDevices) < 1 {
 			glog.Infof("no devices in device pool, skipping creating resource server for %s", rc.ResourceName)
 			continue

@@ -75,3 +75,37 @@ func (ap *accelDeviceProvider) AddTargetDevices(devices []*ghw.PCIDevice, device
 	}
 	return nil
 }
+
+func (ap *accelDeviceProvider) GetFilteredDevices(rc *types.ResourceConfig) []types.PciDevice {
+	filteredDevice := ap.GetDevices()
+
+	rf := ap.rFactory
+	// filter by vendor list
+	if rc.Selectors.Vendors != nil && len(rc.Selectors.Vendors) > 0 {
+		if selector, err := rf.GetSelector("vendors", rc.Selectors.Vendors); err == nil {
+			filteredDevice = selector.Filter(filteredDevice)
+		}
+	}
+
+	// filter by device list
+	if rc.Selectors.Devices != nil && len(rc.Selectors.Devices) > 0 {
+		if selector, err := rf.GetSelector("devices", rc.Selectors.Devices); err == nil {
+			filteredDevice = selector.Filter(filteredDevice)
+		}
+	}
+
+	// filter by driver list
+	if rc.Selectors.Drivers != nil && len(rc.Selectors.Drivers) > 0 {
+		if selector, err := rf.GetSelector("drivers", rc.Selectors.Drivers); err == nil {
+			filteredDevice = selector.Filter(filteredDevice)
+		}
+	}
+
+	// convert to []AccelDevice to []PciDevice
+	newDeviceList := make([]types.PciDevice, len(filteredDevice))
+	for i, d := range filteredDevice {
+		newDeviceList[i] = d
+	}
+
+	return newDeviceList
+}

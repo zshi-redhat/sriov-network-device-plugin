@@ -15,7 +15,6 @@
 package factory
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/golang/glog"
@@ -147,28 +146,5 @@ func (rf *resourceFactory) GetDeviceProvider(dt types.DeviceType) types.DevicePr
 		return accelerator.NewAccelDeviceProvider(rf)
 	default:
 		return nil
-	}
-}
-
-// GetDeviceFilter unmarshal the "selector" values from ResourceConfig and returns an instance of DeviceFilter based on
-// DeviceType in the ResourceConfig
-func (rf *resourceFactory) GetDeviceFilter(rc *types.ResourceConfig) (types.DeviceFilter, error) {
-	switch rc.DeviceType {
-	case types.NetDeviceType:
-		netDeviceSelector := &types.NetDeviceSelectors{}
-
-		if err := json.Unmarshal(*rc.Selectors, netDeviceSelector); err != nil {
-			return nil, fmt.Errorf("error unmarshalling NetDevice selector bytes %v", err)
-		}
-		return netdevice.NewNetDeviceFilter(netDeviceSelector, rf, rc.IsRdma), nil
-	case types.AcceleratorType:
-		accelDeviceSelector := &types.AccelDeviceSelectors{}
-
-		if err := json.Unmarshal(*rc.Selectors, accelDeviceSelector); err != nil {
-			return nil, fmt.Errorf("error unmarshalling Accelerator selector bytes %v", err)
-		}
-		return accelerator.NewAccelDeviceFilter(accelDeviceSelector, rf), nil
-	default:
-		return nil, fmt.Errorf("unable to get deviceFilter, invalid deviceType %s", rc.DeviceType)
 	}
 }

@@ -10,29 +10,6 @@ type ResourceFactory struct {
 	mock.Mock
 }
 
-// GetDeviceFilter provides a mock function with given fields: _a0
-func (_m *ResourceFactory) GetDeviceFilter(_a0 *types.ResourceConfig) (types.DeviceFilter, error) {
-	ret := _m.Called(_a0)
-
-	var r0 types.DeviceFilter
-	if rf, ok := ret.Get(0).(func(*types.ResourceConfig) types.DeviceFilter); ok {
-		r0 = rf(_a0)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.DeviceFilter)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*types.ResourceConfig) error); ok {
-		r1 = rf(_a0)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetDeviceProvider provides a mock function with given fields: _a0
 func (_m *ResourceFactory) GetDeviceProvider(_a0 types.DeviceType) types.DeviceProvider {
 	ret := _m.Called(_a0)

@@ -226,33 +226,6 @@ var _ = Describe("Factory", func() {
 		Entry("of an accelerator shouldn't return nil", types.AcceleratorType, true),
 		Entry("of unsupported device type should return nil", nil, false),
 	)
-	DescribeTable("getting device filter",
-		func(dt types.DeviceType, sel string, expected types.DeviceFilter, shouldSucceed bool) {
-			// prepare json rawmessage selector
-			s := json.RawMessage{}
-			err := s.UnmarshalJSON([]byte(sel))
-			Expect(err).NotTo(HaveOccurred())
-
-			rc := &types.ResourceConfig{
-				DeviceType: dt,
-				Selectors:  &s,
-			}
-
-			f := factory.NewResourceFactory("fake", "fake", true)
-
-			_, e := f.GetDeviceFilter(rc)
-			if shouldSucceed {
-				Expect(e).NotTo(HaveOccurred())
-			} else {
-				Expect(e).To(HaveOccurred())
-			}
-		},
-		Entry("successful netdevice", types.NetDeviceType, `{"PfNames":["eth0"]}`, nil, true),
-		Entry("failed netdevice", types.NetDeviceType, `invalid selectors!`, nil, false),
-		Entry("successful accelerator", types.AcceleratorType, `{"Vendors": ["8086"]}`, nil, true),
-		Entry("failed accelerator", types.AcceleratorType, `invalid selectors!`, nil, false),
-		Entry("unsupported type", nil, ``, nil, false),
-	)
 	Describe("getting rdma spec", func() {
 		Context("check c rdma spec", func() {
 			f := factory.NewResourceFactory("fake", "fake", true)

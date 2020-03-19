@@ -119,3 +119,73 @@ func hasDefaultRoute(pciAddr string) (bool, error) {
 
 	return false, nil
 }
+
+func (np *netDeviceProvider) GetFilteredDevices(rc *types.ResourceConfig) []types.PciDevice {
+	filteredDevice := np.GetDevices()
+
+	rf := np.rFactory
+	// filter by vendor list
+	if rc.Selectors.Vendors != nil && len(rc.Selectors.Vendors) > 0 {
+		if selector, err := rf.GetSelector("vendors", rc.Selectors.Vendors); err == nil {
+			filteredDevice = selector.Filter(filteredDevice)
+		}
+	}
+
+	// filter by device list
+	if rc.Selectors.Devices != nil && len(rc.Selectors.Devices) > 0 {
+		if selector, err := rf.GetSelector("devices", rc.Selectors.Devices); err == nil {
+			filteredDevice = selector.Filter(filteredDevice)
+		}
+	}
+
+	// filter by driver list
+	if rc.Selectors.Drivers != nil && len(rc.Selectors.Drivers) > 0 {
+		if selector, err := rf.GetSelector("drivers", rc.Selectors.Drivers); err == nil {
+			filteredDevice = selector.Filter(filteredDevice)
+		}
+	}
+
+	// filter by PfNames list
+	if rc.Selectors.PfNames != nil && len(rc.Selectors.PfNames) > 0 {
+		if selector, err := rf.GetSelector("pfNames", rc.Selectors.PfNames); err == nil {
+			filteredDevice = selector.Filter(filteredDevice)
+		}
+	}
+
+	// filter by linkTypes list
+	if rc.Selectors.LinkTypes != nil && len(rc.Selectors.LinkTypes) > 0 {
+		if len(rc.Selectors.LinkTypes) > 1 {
+			glog.Warningf("Link type selector should have a single value.")
+		}
+		if selector, err := rf.GetSelector("linkTypes", rc.Selectors.LinkTypes); err == nil {
+			filteredDevice = selector.Filter(filteredDevice)
+		}
+	}
+
+	// filter by DDP Profiles list
+	if rc.Selectors.DDPProfiles != nil && len(rc.Selectors.DDPProfiles) > 0 {
+		if selector, err := rf.GetSelector("ddpProfiles", rc.Selectors.DDPProfiles); err == nil {
+			filteredDevice = selector.Filter(filteredDevice)
+		}
+	}
+
+	// filter for rdma devices
+	if rc.IsRdma {
+		rdmaDevices := make([]types.PciDevice, 0)
+		for _, dev := range filteredDevice {
+
+			if dev.(types.PciNetDevice).GetRdmaSpec().IsRdma() {
+				rdmaDevices = append(rdmaDevices, dev)
+			}
+		}
+		filteredDevice = rdmaDevices
+	}
+
+	// convert to []PciNetDevice to []PciDevice
+	newDeviceList := make([]types.PciDevice, len(filteredDevice))
+	for i, d := range filteredDevice {
+		newDeviceList[i] = d
+	}
+
+	return newDeviceList
+}
