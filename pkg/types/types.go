@@ -129,6 +129,7 @@ type ResourceFactory interface {
 	GetRdmaSpec(string) RdmaSpec
 	GetDeviceProvider(DeviceType) DeviceProvider
 	GetDeviceFilter(*ResourceConfig) (interface{}, error)
+	GetAllocator() Allocator
 }
 
 // ResourcePool represents a generic resource entity
@@ -141,6 +142,7 @@ type ResourcePool interface {
 	GetDeviceSpecs(deviceIDs []string) []*pluginapi.DeviceSpec
 	GetEnvs(deviceIDs []string) []string
 	GetMounts(deviceIDs []string) []*pluginapi.Mount
+	GetDevicePool() map[string]PciDevice // for ListAndWatch
 }
 
 // DeviceProvider provides interface for device discovery
@@ -193,6 +195,16 @@ type DeviceInfoProvider interface {
 	GetDeviceSpecs(pciAddr string) []*pluginapi.DeviceSpec
 	GetEnvVal(pciAddr string) string
 	GetMounts(pciAddr string) []*pluginapi.Mount
+}
+
+// Allocator is an interface to get preferred device allocation
+type Allocator interface {
+	Allocate(*pluginapi.ContainerPreferredAllocationRequest, ResourcePool) []string
+}
+
+// ConcentrateAllocator extends Allocator interface
+type ConcentrateAllocator interface {
+	Allocator
 }
 
 // DeviceSelector provides an interface for filtering a list of devices
