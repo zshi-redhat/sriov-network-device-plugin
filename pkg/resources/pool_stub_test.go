@@ -42,7 +42,7 @@ var _ = Describe("PoolStub", func() {
 				"sys/bus/pci/devices/0000:00:00.2/driver":      "../../../../bus/pci/drivers/vfio-pci",
 			},
 		}
-		f = factory.NewResourceFactory("fake", "fake", true, "")
+		f = factory.NewResourceFactory("fake", "fake", true)
 		rc = &types.ResourceConfig{SelectorObj: types.NetDeviceSelectors{}}
 		devs = []string{"0000:00:00.1", "0000:00:00.2"}
 	})

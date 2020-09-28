@@ -77,6 +77,7 @@ type ResourceConfig struct {
 	DeviceType     DeviceType       `json:"deviceType,omitempty"`
 	Selectors      *json.RawMessage `json:"selectors,omitempty"`
 	SelectorObj    interface{}
+	AllocatePolicy string `json:"allocatePolicy,omitempty"`
 }
 
 // DeviceSelectors contains common device selectors fields
@@ -129,7 +130,7 @@ type ResourceFactory interface {
 	GetRdmaSpec(string) RdmaSpec
 	GetDeviceProvider(DeviceType) DeviceProvider
 	GetDeviceFilter(*ResourceConfig) (interface{}, error)
-	GetAllocator() Allocator
+	GetAllocator(string) Allocator
 }
 
 // ResourcePool represents a generic resource entity
@@ -143,6 +144,7 @@ type ResourcePool interface {
 	GetEnvs(deviceIDs []string) []string
 	GetMounts(deviceIDs []string) []*pluginapi.Mount
 	GetDevicePool() map[string]PciDevice // for ListAndWatch
+	GetAllocatePolicy() string
 }
 
 // DeviceProvider provides interface for device discovery
